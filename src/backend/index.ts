@@ -1,6 +1,6 @@
 import path from "path";
 import express from "express";
-import { app } from "../../api/app";
+import { app } from "./app";
 
 const PORT = Number(process.env.PORT) || 3000;
 

@@ -59,7 +59,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           setError("Redirect sign-in also failed. Please check your Firebase Console settings.");
         }
       } else if (err.code === "auth/unauthorized-domain") {
-        setError("This domain is not authorized. Go to Firebase Console → Authentication → Settings → Authorized Domains and add 'localhost'.");
+        setError("This domain is not authorized. Go to Firebase Console → Authentication → Settings → Authorized Domains and add this website's domain name.");
       } else if (err.code === "auth/popup-closed-by-user") {
         setError("Sign-in popup was closed. Please try again.");
       } else if (err.code === "auth/operation-not-allowed") {

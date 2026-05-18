@@ -1,0 +1,6 @@
+{
+  "name": "Lumina Learning",
+  "description": "An AI-powered student learning platform featuring document analysis, key point extraction, quiz generation, and progress tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

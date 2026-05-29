@@ -51,9 +51,9 @@ const quizSchema: Schema = {
 };
 
 // Get the globally optimized model config
-const getModel = () => {
+const getModel = (modelName: string) => {
   return getGenAI().getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: modelName,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: quizSchema,
@@ -65,22 +65,44 @@ router.post("/", async (req: Request, res: Response) => {
   try {
     const { content } = req.body;
 
-    const model = getModel();
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: content },
-            {
-              text: "Create a quiz based on the provided material. Include 5 varied multiple-choice questions with 4 options each, the correct answer index, and a detailed explanation for each answer.",
-            },
-          ],
-        },
-      ],
-    });
+    let resultText = "";
+    try {
+      // Primary: Modern high-capacity Gemini 3.5 Flash
+      const model = getModel("gemini-3.5-flash");
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: content },
+              {
+                text: "Create a quiz based on the provided material. Include 5 varied multiple-choice questions with 4 options each, the correct answer index, and a detailed explanation for each answer.",
+              },
+            ],
+          },
+        ],
+      });
+      resultText = result.response.text();
+    } catch (primaryError) {
+      console.warn("Primary model (gemini-3.5-flash) failed, attempting fallback to gemini-2.5-flash:", primaryError);
+      // Secondary Fallback: Gemini 2.5 Flash
+      const modelFallback = getModel("gemini-2.5-flash");
+      const resultFallback = await modelFallback.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: content },
+              {
+                text: "Create a quiz based on the provided material. Include 5 varied multiple-choice questions with 4 options each, the correct answer index, and a detailed explanation for each answer.",
+              },
+            ],
+          },
+        ],
+      });
+      resultText = resultFallback.response.text();
+    }
 
-    const resultText = result.response.text();
     const resultJson = JSON.parse(resultText || "{}");
     res.json(resultJson);
   } catch (error: any) {

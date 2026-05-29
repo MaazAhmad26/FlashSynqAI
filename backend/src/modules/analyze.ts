@@ -34,9 +34,9 @@ const analyzeSchema: Schema = {
 };
 
 // Get the globally optimized model config
-const getModel = () => {
+const getModel = (modelName: string) => {
   return getGenAI().getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: modelName,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: analyzeSchema,
@@ -79,22 +79,44 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No content provided" });
     }
 
-    const model = getModel();
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            ...contentParts,
-            {
-              text: "Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags.",
-            },
-          ],
-        },
-      ],
-    });
+    let resultText = "";
+    try {
+      // Primary: Modern high-capacity Gemini 3.5 Flash
+      const model = getModel("gemini-3.5-flash");
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              ...contentParts,
+              {
+                text: "Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags.",
+              },
+            ],
+          },
+        ],
+      });
+      resultText = result.response.text();
+    } catch (primaryError) {
+      console.warn("Primary model (gemini-3.5-flash) failed, attempting fallback to gemini-2.5-flash:", primaryError);
+      // Secondary Fallback: Gemini 2.5 Flash
+      const modelFallback = getModel("gemini-2.5-flash");
+      const resultFallback = await modelFallback.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              ...contentParts,
+              {
+                text: "Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags.",
+              },
+            ],
+          },
+        ],
+      });
+      resultText = resultFallback.response.text();
+    }
 
-    const resultText = result.response.text();
     const resultJson = JSON.parse(resultText || "{}");
     res.json(resultJson);
   } catch (error: any) {

@@ -8,7 +8,7 @@ const getChatModel = () => {
   if (!chatModel) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       systemInstruction:
         "You are FlashSynq AI, a study buddy. You must ONLY respond to questions and topics related to studies, learning, and education. If the user asks about anything else, politely decline and steer the conversation back to studying.",
     });

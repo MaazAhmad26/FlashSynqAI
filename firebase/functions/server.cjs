@@ -26,28 +26,64 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/backend/index.ts
-var index_exports = {};
-__export(index_exports, {
+// backend/src/server.ts
+var server_exports = {};
+__export(server_exports, {
   app: () => app
 });
-module.exports = __toCommonJS(index_exports);
+module.exports = __toCommonJS(server_exports);
 var import_path2 = __toESM(require("path"));
 var import_express6 = __toESM(require("express"));
 
-// api/app.ts
+// backend/src/app.ts
 var import_express5 = __toESM(require("express"));
 var import_path = __toESM(require("path"));
 var import_dotenv = __toESM(require("dotenv"));
+var import_compression = __toESM(require("compression"));
+var import_express_rate_limit = __toESM(require("express-rate-limit"));
 
-// api/routes/analyze.ts
+// backend/src/modules/analyze.ts
 var import_express = require("express");
 var import_generative_ai = require("@google/generative-ai");
 var router = (0, import_express.Router)();
+var genAI;
+var getGenAI = () => {
+  if (!genAI) {
+    genAI = new import_generative_ai.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+  }
+  return genAI;
+};
+var analyzeSchema = {
+  type: import_generative_ai.SchemaType.OBJECT,
+  properties: {
+    summary: {
+      type: import_generative_ai.SchemaType.STRING,
+      description: "A concise summary of the provided study material."
+    },
+    keyPoints: {
+      type: import_generative_ai.SchemaType.ARRAY,
+      items: { type: import_generative_ai.SchemaType.STRING },
+      description: "A list of key points extracted from the material with memory aids/mnemonics."
+    },
+    tags: {
+      type: import_generative_ai.SchemaType.ARRAY,
+      items: { type: import_generative_ai.SchemaType.STRING },
+      description: "Relevant study tags for sorting and categorizing the material."
+    }
+  },
+  required: ["summary", "keyPoints", "tags"]
+};
+var getModel = () => {
+  return getGenAI().getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: analyzeSchema
+    }
+  });
+};
 router.post("/", async (req, res) => {
   try {
-    const genAI = new import_generative_ai.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const { fileData, fileType, textContent } = req.body;
     let contentParts = [];
     if (fileData) {
@@ -73,6 +109,7 @@ router.post("/", async (req, res) => {
     if (contentParts.length === 0) {
       return res.status(400).json({ error: "No content provided" });
     }
+    const model = getModel();
     const result = await model.generateContent({
       contents: [
         {
@@ -80,16 +117,14 @@ router.post("/", async (req, res) => {
           parts: [
             ...contentParts,
             {
-              text: 'Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags. IMPORTANT: Return ONLY a valid JSON object matching this schema: { "summary": "string", "keyPoints": ["string"], "tags": ["string"] }. Do not include markdown formatting or backticks.'
+              text: "Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags."
             }
           ]
         }
       ]
     });
     const resultText = result.response.text();
-    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-    const cleanedJson = jsonMatch ? jsonMatch[0] : resultText;
-    const resultJson = JSON.parse(cleanedJson || "{}");
+    const resultJson = JSON.parse(resultText || "{}");
     res.json(resultJson);
   } catch (error) {
     console.error("Analysis Error:", error);
@@ -98,23 +133,29 @@ router.post("/", async (req, res) => {
 });
 var analyze_default = router;
 
-// api/routes/chat.ts
+// backend/src/modules/chat.ts
 var import_express2 = require("express");
 var import_generative_ai2 = require("@google/generative-ai");
 var router2 = (0, import_express2.Router)();
+var chatModel;
+var getChatModel = () => {
+  if (!chatModel) {
+    const genAI3 = new import_generative_ai2.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    chatModel = genAI3.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: "You are FlashSynq AI, a study buddy. You must ONLY respond to questions and topics related to studies, learning, and education. If the user asks about anything else, politely decline and steer the conversation back to studying."
+    });
+  }
+  return chatModel;
+};
 router2.post("/", async (req, res) => {
   try {
-    const genAI = new import_generative_ai2.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     const { message, history } = req.body;
     const chatHistory = history?.map((msg) => ({
       role: msg.role === "user" ? "user" : "model",
       parts: [{ text: msg.content }]
     })) || [];
-    const chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: "You are FlashSynq AI, a study buddy. You must ONLY respond to questions and topics related to studies, learning, and education. If the user asks about anything else, politely decline and steer the conversation back to studying."
-    });
-    const chat = chatModel.startChat({
+    const chat = getChatModel().startChat({
       history: chatHistory,
       generationConfig: { maxOutputTokens: 500 }
     });
@@ -128,15 +169,67 @@ router2.post("/", async (req, res) => {
 });
 var chat_default = router2;
 
-// api/routes/quiz.ts
+// backend/src/modules/quiz.ts
 var import_express3 = require("express");
 var import_generative_ai3 = require("@google/generative-ai");
 var router3 = (0, import_express3.Router)();
+var genAI2;
+var getGenAI2 = () => {
+  if (!genAI2) {
+    genAI2 = new import_generative_ai3.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+  }
+  return genAI2;
+};
+var quizSchema = {
+  type: import_generative_ai3.SchemaType.OBJECT,
+  properties: {
+    title: {
+      type: import_generative_ai3.SchemaType.STRING,
+      description: "The title or topic of the quiz."
+    },
+    questions: {
+      type: import_generative_ai3.SchemaType.ARRAY,
+      items: {
+        type: import_generative_ai3.SchemaType.OBJECT,
+        properties: {
+          question: {
+            type: import_generative_ai3.SchemaType.STRING,
+            description: "The multiple choice question text."
+          },
+          options: {
+            type: import_generative_ai3.SchemaType.ARRAY,
+            items: { type: import_generative_ai3.SchemaType.STRING },
+            description: "A list of exactly 4 potential answer options."
+          },
+          correctAnswerIndex: {
+            type: import_generative_ai3.SchemaType.INTEGER,
+            description: "The 0-based index of the correct answer within the options array."
+          },
+          explanation: {
+            type: import_generative_ai3.SchemaType.STRING,
+            description: "A detailed explanation explaining why the correct answer is correct."
+          }
+        },
+        required: ["question", "options", "correctAnswerIndex", "explanation"]
+      },
+      description: "A list of 5 multiple choice questions."
+    }
+  },
+  required: ["title", "questions"]
+};
+var getModel2 = () => {
+  return getGenAI2().getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: quizSchema
+    }
+  });
+};
 router3.post("/", async (req, res) => {
   try {
-    const genAI = new import_generative_ai3.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const { content } = req.body;
+    const model = getModel2();
     const result = await model.generateContent({
       contents: [
         {
@@ -144,16 +237,14 @@ router3.post("/", async (req, res) => {
           parts: [
             { text: content },
             {
-              text: 'Create a quiz based on the provided material. Include 5 varied multiple-choice questions with 4 options each, the correct answer index, and a detailed explanation for each answer. IMPORTANT: Return ONLY a valid JSON object matching this schema: { "title": "string", "questions": [{ "question": "string", "options": ["string"], "correctAnswerIndex": 0, "explanation": "string" }] }. Do not include markdown formatting or backticks.'
+              text: "Create a quiz based on the provided material. Include 5 varied multiple-choice questions with 4 options each, the correct answer index, and a detailed explanation for each answer."
             }
           ]
         }
       ]
     });
     const resultText = result.response.text();
-    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-    const cleanedJson = jsonMatch ? jsonMatch[0] : resultText;
-    const resultJson = JSON.parse(cleanedJson || "{}");
+    const resultJson = JSON.parse(resultText || "{}");
     res.json(resultJson);
   } catch (error) {
     console.error("Quiz Generation Error:", error);
@@ -162,7 +253,7 @@ router3.post("/", async (req, res) => {
 });
 var quiz_default = router3;
 
-// api/routes/health.ts
+// backend/src/modules/health.ts
 var import_express4 = require("express");
 var router4 = (0, import_express4.Router)();
 router4.get("/", (req, res) => {
@@ -177,23 +268,31 @@ router4.get("/", (req, res) => {
 });
 var health_default = router4;
 
-// api/app.ts
+// backend/src/app.ts
 import_dotenv.default.config({ path: import_path.default.resolve(process.cwd(), ".env") });
 var app = (0, import_express5.default)();
+app.use((0, import_compression.default)());
 app.use(import_express5.default.json({ limit: "10mb" }));
 app.use(import_express5.default.urlencoded({ limit: "10mb", extended: true }));
-app.use("/api/analyze", analyze_default);
-app.use("/api/chat", chat_default);
-app.use("/api/generate-quiz", quiz_default);
+var aiLimiter = (0, import_express_rate_limit.default)({
+  windowMs: 15 * 60 * 1e3,
+  max: 30,
+  message: { error: "Too many requests. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use("/api/analyze", aiLimiter, analyze_default);
+app.use("/api/chat", aiLimiter, chat_default);
+app.use("/api/generate-quiz", aiLimiter, quiz_default);
 app.use("/api/health", health_default);
 
-// src/backend/index.ts
+// backend/src/server.ts
 var PORT = Number(process.env.PORT) || 3e3;
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      root: import_path2.default.resolve(process.cwd(), "src/frontend"),
+      root: import_path2.default.resolve(process.cwd(), "frontend"),
       server: { middlewareMode: true },
       appType: "spa"
     });
@@ -209,7 +308,7 @@ async function startServer() {
     console.log(`\u{1F680} FlashSynqAI server running on http://localhost:${PORT}`);
   });
 }
-if (!process.env.FIREBASE_CONFIG && !process.env.VERCEL) {
+if (!process.env.FIREBASE_CONFIG) {
   startServer();
 }
 // Annotate the CommonJS export names for ESM import in node:

@@ -25,6 +25,19 @@ export default function Dashboard({ user, onStartUpload, onViewDoc, onStartFlash
   const handleDeleteDoc = async (docId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!docId) return;
+
+    // Cascade delete related quizzes and progress
+    const allQuizzes = await MockDB.list("quizzes", { field: "documentId", value: docId });
+    for (const quiz of allQuizzes) {
+      if (quiz.id) {
+        const allProgress = await MockDB.list("progress", { field: "quizId", value: quiz.id });
+        for (const p of allProgress) {
+          if (p.id) await MockDB.delete("progress", p.id);
+        }
+        await MockDB.delete("quizzes", quiz.id);
+      }
+    }
+
     await MockDB.delete("documents", docId);
     setRecentDocs(prev => prev.filter(doc => doc.id !== docId));
     setStats(prev => ({ ...prev, totalDocs: Math.max(0, prev.totalDocs - 1) }));
@@ -38,8 +51,20 @@ export default function Dashboard({ user, onStartUpload, onViewDoc, onStartFlash
         await MockDB.delete("documents", doc.id);
       }
     }
+    
+    // Cascade delete all quizzes and progress for the user
+    const allQuizzes = await MockDB.list("quizzes", { field: "userId", value: user.uid });
+    for (const quiz of allQuizzes) {
+      if (quiz.id) await MockDB.delete("quizzes", quiz.id);
+    }
+    
+    const allProgress = await MockDB.list("progress", { field: "userId", value: user.uid });
+    for (const p of allProgress) {
+      if (p.id) await MockDB.delete("progress", p.id);
+    }
+
     setRecentDocs([]);
-    setStats(prev => ({ ...prev, totalDocs: 0 }));
+    setStats(prev => ({ ...prev, totalDocs: 0, completedQuizzes: 0, avgScore: 0, lastScore: 0, diffLabel: "No sessions yet", isPositive: true }));
   };
 
 
@@ -138,12 +163,12 @@ export default function Dashboard({ user, onStartUpload, onViewDoc, onStartFlash
   }, [user.uid]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-none md:grid-rows-3 gap-5 min-h-[600px]">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
       {/* Hero Card - Document Analysis */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="md:col-span-2 md:row-span-2 bg-card border border-border rounded-[24px] p-8 flex flex-col relative overflow-hidden bg-[linear-gradient(135deg,var(--color-card)_0%,var(--color-bg)_100%)] group"
+        className="md:col-span-2 bg-card border border-border rounded-[24px] p-8 flex flex-col relative overflow-hidden bg-[linear-gradient(135deg,var(--color-card)_0%,var(--color-bg)_100%)] group"
       >
         <div className="text-[12px] font-semibold text-text-muted uppercase tracking-wider mb-6 flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
@@ -152,7 +177,7 @@ export default function Dashboard({ user, onStartUpload, onViewDoc, onStartFlash
         
         <div 
           onClick={onStartUpload}
-          className="flex-1 border-2 border-dashed border-border rounded-[16px] flex flex-col items-center justify-center gap-3 bg-card/50 hover:bg-card/80 transition-all cursor-pointer"
+          className="flex-1 py-8 border-2 border-dashed border-border rounded-[16px] flex flex-col items-center justify-center gap-3 bg-card/50 hover:bg-card/80 transition-all cursor-pointer"
         >
           <div className="w-12 h-12 rounded-full border border-primary/20 flex items-center justify-center text-primary">
              <Plus className="w-6 h-6" />
@@ -211,7 +236,7 @@ export default function Dashboard({ user, onStartUpload, onViewDoc, onStartFlash
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="md:row-span-2 bg-card border border-border rounded-[24px] p-8 flex flex-col"
+        className="bg-card border border-border rounded-[24px] p-8 flex flex-col"
       >
         <div className="text-[12px] font-semibold text-text-muted uppercase tracking-wider mb-6">Quick Tags</div>
         <div className="flex flex-wrap gap-2">

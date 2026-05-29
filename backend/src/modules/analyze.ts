@@ -1,13 +1,51 @@
 import { Router, Request, Response } from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 
 const router = Router();
 
+let genAI: GoogleGenerativeAI;
+const getGenAI = () => {
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+  }
+  return genAI;
+};
+
+// Define schema for structural validation of analytical output
+const analyzeSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    summary: { 
+      type: SchemaType.STRING,
+      description: "A concise summary of the provided study material."
+    },
+    keyPoints: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "A list of key points extracted from the material with memory aids/mnemonics."
+    },
+    tags: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "Relevant study tags for sorting and categorizing the material."
+    }
+  },
+  required: ["summary", "keyPoints", "tags"]
+};
+
+// Get the globally optimized model config
+const getModel = () => {
+  return getGenAI().getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: analyzeSchema,
+    }
+  });
+};
+
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
     const { fileData, fileType, textContent } = req.body;
     let contentParts: any[] = [];
 
@@ -41,6 +79,7 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No content provided" });
     }
 
+    const model = getModel();
     const result = await model.generateContent({
       contents: [
         {
@@ -48,7 +87,7 @@ router.post("/", async (req: Request, res: Response) => {
           parts: [
             ...contentParts,
             {
-              text: 'Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags. IMPORTANT: Return ONLY a valid JSON object matching this schema: { "summary": "string", "keyPoints": ["string"], "tags": ["string"] }. Do not include markdown formatting or backticks.',
+              text: "Analyze this study material. Provide a concise summary, a list of key points with memory aids (like mnemonics), and relevant study tags.",
             },
           ],
         },
@@ -56,9 +95,7 @@ router.post("/", async (req: Request, res: Response) => {
     });
 
     const resultText = result.response.text();
-    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-    const cleanedJson = jsonMatch ? jsonMatch[0] : resultText;
-    const resultJson = JSON.parse(cleanedJson || "{}");
+    const resultJson = JSON.parse(resultText || "{}");
     res.json(resultJson);
   } catch (error: any) {
     console.error("Analysis Error:", error);

@@ -3,9 +3,21 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router = Router();
 
+let chatModel: any;
+const getChatModel = () => {
+  if (!chatModel) {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    chatModel = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction:
+        "You are FlashSynq AI, a study buddy. You must ONLY respond to questions and topics related to studies, learning, and education. If the user asks about anything else, politely decline and steer the conversation back to studying.",
+    });
+  }
+  return chatModel;
+};
+
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     const { message, history } = req.body;
 
     const chatHistory = history?.map((msg: any) => ({
@@ -13,13 +25,7 @@ router.post("/", async (req: Request, res: Response) => {
       parts: [{ text: msg.content }],
     })) || [];
 
-    const chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction:
-        "You are FlashSynq AI, a study buddy. You must ONLY respond to questions and topics related to studies, learning, and education. If the user asks about anything else, politely decline and steer the conversation back to studying.",
-    });
-
-    const chat = chatModel.startChat({
+    const chat = getChatModel().startChat({
       history: chatHistory,
       generationConfig: { maxOutputTokens: 500 },
     });

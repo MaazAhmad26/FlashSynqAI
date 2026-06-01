@@ -1,7 +1,4 @@
-<div align="center">
-  <img width="1200" height="475" alt="FlashSynqAI Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-  
-  # 🚀 FlashSynqAI — Your AI-Powered Study Buddy
+# 🚀 FlashSynqAI — Your AI-Powered Study Buddy
   
   [![Deploy to Render](https://render.com/images/deploy-to-render.svg)](https://render.com)
   [![Firebase](https://img.shields.io/badge/firebase-ffca28?style=flat&logo=firebase&logoColor=black)](https://firebase.google.com/)

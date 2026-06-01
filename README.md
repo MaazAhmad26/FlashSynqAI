@@ -1,6 +1,6 @@
 # 🚀 FlashSynqAI — Your AI-Powered Study Buddy
 
-  [![Deploy to Render](https://render.com/images/deploy-to-render.svg)](https://flashsynqai.onrender.com/)
+  [![Render](https://img.shields.io/badge/render-46E3B7?style=flat&logo=render&logoColor=white)](https://flashsynqai.onrender.com/)
   [![Firebase](https://img.shields.io/badge/firebase-ffca28?style=flat&logo=firebase&logoColor=black)](https://firebase.google.com/)
   [![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB)](https://react.dev/)
   [![Node.js](https://img.shields.io/badge/node.js-6DA55F?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
